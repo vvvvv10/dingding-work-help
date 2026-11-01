@@ -119,6 +119,20 @@ def max_reply_chars() -> int:
     return _int("RAG_MAX_REPLY_CHARS", 1800)
 
 
+def raw_fallback() -> bool:
+    """知识卡片零命中时，回退到群聊原始消息兜底作答。
+
+    提炼有最小条数门槛，一两句话就说完的答案永远变不成卡片；
+    关掉这个开关，那些答案就彻底查不到了。
+    """
+    return _bool("RAG_RAW_FALLBACK", True)
+
+
+def raw_top_k() -> int:
+    """兜底时最多带几条原始消息进上下文。原文噪声大，不宜给多。"""
+    return _int("RAG_RAW_TOP_K", 4)
+
+
 def vec_min_sim() -> float:
     """纯向量召回（关键词零命中）时的最低余弦相似度，低于这个值不出现在结果里。
 

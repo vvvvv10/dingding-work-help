@@ -116,6 +116,52 @@ class TestRag(BaseCase):
         self.assertGreaterEqual(row[0], 1, "越权必须留痕")
 
 
+class TestRawFallback(BaseCase):
+    """提炼有最小条数门槛，一两句话说完的答案永远变不成卡片，只能从原文兜底。"""
+
+    def _say(self, content: str, nick: str = "张三", ts: int = 1735689600000) -> None:
+        store.record_message(
+            self.conn,
+            "cidSupportAAAA",
+            "chat_support",
+            content,
+            sender_id="u1001",
+            sender_nick=nick,
+            created_at=ts,
+        )
+
+    def test_uncarded_answer_found_in_raw_messages(self):
+        self._say("临时配对码要在白名单里吗")
+        self._say("不用，配对码的地址是 10.2.3.4，端口 9527")
+        hits = store.search(self.conn, "配对码走哪个端口", {"chat_support"}, k=5)
+        self.assertEqual(hits, [], "这两条没被提炼，卡片检索本来就该是 0")
+
+        ans = rag.ask(self.conn, "u1001", "配对码走哪个端口", conversation_id="cidSupportAAAA")
+        self.assertFalse(ans.refused)
+        self.assertEqual(ans.mode, "raw")
+        self.assertTrue(ans.citations)
+        self.assertEqual(ans.citations[0]["status"], "raw")
+        self.assertIn("未经整理", ans.text)
+        self.assertIn("9527", ans.text, "原文里的端口号要能出现在答案里")
+
+    def test_fallback_never_crosses_scope(self):
+        self._say("不用，配对码的地址是 10.2.3.4，端口 9527")
+        self.assertEqual(store.search_messages(self.conn, "配对码 端口", {"chat_dev"}, k=4), [])
+
+    def test_fallback_can_be_switched_off(self):
+        self._say("不用，配对码的地址是 10.2.3.4，端口 9527")
+        os.environ["RAG_RAW_FALLBACK"] = "0"
+        try:
+            ans = rag.ask(self.conn, "u1001", "配对码走哪个端口", conversation_id="cidSupportAAAA")
+            self.assertEqual(ans.mode, "empty")
+        finally:
+            os.environ.pop("RAG_RAW_FALLBACK", None)
+
+    def test_cards_still_win_when_present(self):
+        ans = rag.ask(self.conn, "u1001", "拆封的软件卡能退吗", conversation_id="cidSupportAAAA")
+        self.assertNotEqual(ans.mode, "raw", "有卡片时不该走兜底")
+
+
 class TestStreamHandler(BaseCase):
     def test_slash_permission_lists_scopes(self):
         from app.ingest import stream_bot

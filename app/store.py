@@ -495,6 +495,85 @@ def search(
     return results[:k]
 
 
+# ---------------------------------------------------------------- 原始消息兜底检索
+
+# 关键词预筛最多用几个 token、最多捞多少行走 Python 打分。
+# 已经按 scope 收窄过，再加这两个上限，库涨到十万条也不会把一次提问拖成秒级。
+_RAW_MAX_TERMS = 6
+_RAW_MAX_SCAN = 800
+
+
+def search_messages(
+    conn: sqlite3.Connection,
+    query: str,
+    scopes: Set[str],
+    k: int = 4,
+) -> List[Dict]:
+    """在群聊原始消息里找答案，给「还没被提炼成卡片」的内容兜底。
+
+    只在 store.search() 零命中时调用。消息表没有全文索引（也没必要为它建一个），
+    所以先用 LIKE 做粗筛把候选压到几百行，再用和文档检索同一套 bigram 打分排序，
+    这样两边的相关性口径是一致的。
+
+    刻意不过滤 doc_id：一条消息虽被某篇文档收走，但那篇文档可能讲的是别的事，
+    兜底阶段要的是召回而不是纯度，噪声交给命中数门槛卡。
+    """
+    query = (query or "").strip()
+    if not query or not scopes:
+        return []
+
+    q_tokens = set(text.tokenize(query))
+    if not q_tokens:
+        return []
+    # 单字 token（"的""是"这种）做 LIKE 几乎命中全表，过滤掉更划算
+    uniq = [t for t in dict.fromkeys(text.tokenize(query)) if len(t) > 1]
+    if not uniq:
+        return []
+    # 长问题只取头尾各 3 个 token：只取开头会把结尾的关键词（"端口"这种）漏掉，
+    # 而 LIKE 是 OR，少一个词只影响召回、不影响正确性。
+    terms = uniq if len(uniq) <= _RAW_MAX_TERMS else list(dict.fromkeys(uniq[:3] + uniq[-3:]))
+
+    ph = ",".join("?" * len(scopes))
+    like = " OR ".join(["m.content LIKE ?"] * len(terms))
+    rows = conn.execute(
+        f"""
+        SELECT m.id, m.msg_id, m.conversation_id, m.scope_key, m.sender_id,
+               m.sender_nick, m.content, m.created_at
+        FROM messages m
+        WHERE m.scope_key IN ({ph}) AND ({like})
+        ORDER BY m.created_at DESC
+        LIMIT ?
+        """,
+        [*scopes, *["%" + t + "%" for t in terms], _RAW_MAX_SCAN],
+    ).fetchall()
+
+    # 查询很短时（"退货"这种），只命中一个 bigram 就是全部命中了，门槛跟着降
+    need = 1 if len(q_tokens) <= 2 else 2
+    scored: List[Dict] = []
+    for r in rows:
+        content = r["content"] or ""
+        if text.is_noise(content):
+            continue
+        hits = len(q_tokens & set(text.tokenize(content)))
+        if hits < need:
+            continue
+        scored.append(
+            {
+                "msg_id": r["msg_id"] or "",
+                "conversation_id": r["conversation_id"],
+                "scope_key": r["scope_key"],
+                "sender_id": r["sender_id"] or "",
+                "sender_nick": r["sender_nick"] or "",
+                "text": content,
+                "created_at": r["created_at"],
+                # 命中数优先；同样命中时短消息更可能是"一句话答案"，排前面
+                "score": round(hits - len(content) / 2000.0, 3),
+            }
+        )
+    scored.sort(key=lambda x: (-x["score"], -x["created_at"]))
+    return scored[:k]
+
+
 # ---------------------------------------------------------------- 统计
 
 def stats(conn: sqlite3.Connection) -> Dict:

@@ -376,7 +376,7 @@ async function doAsk(){
       <div class="hint">模式：${esc(r.mode)} · 检索范围：${r.scopes.map(s=>`<code>${esc(s)}</code>`).join(" ") || "无"}
       ${r.refused?` · <span class="pill bad">已拒绝</span> ${esc(r.reason)}`:""}</div>
       ${r.citations.length? `<table style="margin-top:12px"><tr><th>来源</th><th>知识域</th><th>片段</th></tr>
-        ${r.citations.map(c=>`<tr><td>${esc(c.title)}${c.status==="pending"?` <span class="pill warn">待审核</span>`:""}</td><td><code>${esc(c.scope)}</code></td>
+        ${r.citations.map(c=>`<tr><td>${esc(c.title)}${c.status==="pending"?` <span class="pill warn">待审核</span>`:c.status==="raw"?` <span class="pill warn">未整理</span>`:""}</td><td><code>${esc(c.scope)}</code></td>
         <td class="muted">${esc(c.snippet)}</td></tr>`).join("")}</table>`:""}`;
   }catch(e){ out.innerHTML = `<div class="empty">${esc(e.message)}</div>`; }
 }

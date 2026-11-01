@@ -311,13 +311,13 @@ function addAsk(text){
 function addAnswer(q, a){
   const roles = a.refused
     ? `<span class="pill bad">已拒绝</span>`
-    : `<span class="pill ok">${a.mode === "llm" ? "生成回答" : a.mode === "snippet" ? "原文片段" : "提示"}</span>`;
+    : `<span class="pill ${a.mode === "raw" ? "warn" : "ok"}">${a.mode === "llm" ? "生成回答" : a.mode === "snippet" ? "原文片段" : a.mode === "raw" ? "群聊原文" : "提示"}</span>`;
   const cites = (a.citations || []);
   const citeHtml = cites.length ? `<details class="cites">
       <summary>${cites.length} 条来源</summary>
       ${cites.map((c,i)=>`<div class="cite">
         <b>[${c.n || i+1}] ${esc(c.title)}</b> · ${esc(c.scope)}
-        ${c.status === "pending" ? `<span class="pill warn">待审核</span>` : ""}
+        ${c.status === "pending" ? `<span class="pill warn">待审核</span>` : c.status === "raw" ? `<span class="pill warn">未整理</span>` : ""}
         <br>${esc(c.snippet)}
       </div>`).join("")}
     </details>` : "";

@@ -235,12 +235,12 @@ function bubble(q, a){
   wrap.className = "msg";
   const roles = a.refused
     ? `<span class="pill bad">已拒绝</span>`
-    : `<span class="pill ok">${a.mode === "llm" ? "生成回答" : a.mode === "snippet" ? "原文片段" : "提示"}</span>`;
+    : `<span class="pill ${a.mode === "raw" ? "warn" : "ok"}">${a.mode === "llm" ? "生成回答" : a.mode === "snippet" ? "原文片段" : a.mode === "raw" ? "群聊原文" : "提示"}</span>`;
   const meta = a.scopes && a.scopes.length
     ? `<span>检索域：${a.scopes.map(s=>`<code>${esc(s)}</code>`).join(" ")}</span>` : "";
   const cites = (a.citations || []).map((c,i)=>
     `<div class="cite"><b>[${c.n || i+1}] ${esc(c.title)}</b> · ${esc(c.scope)}${
-       c.status === "pending" ? `<span class="pill" style="color:var(--warn);background:#fff7e8;border-color:#f2dcb0;margin-left:6px">待审核</span>` : ""
+       c.status === "pending" ? `<span class="pill" style="color:var(--warn);background:#fff7e8;border-color:#f2dcb0;margin-left:6px">待审核</span>` : c.status === "raw" ? `<span class="pill" style="color:var(--warn);background:#fff7e8;border-color:#f2dcb0;margin-left:6px">未整理</span>` : ""
      }<br>${esc(c.snippet)}</div>`).join("");
   wrap.innerHTML = `
     <div class="who">${esc(state.current.nickname || state.current.staff_id)} 提问</div>
