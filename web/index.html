@@ -1,0 +1,418 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>群知识机器人 · 控制台</title>
+<style>
+:root{
+  --bg:#f6f7f9; --card:#ffffff; --line:#e3e6ec; --line2:#eef0f4;
+  --text:#16181d; --muted:#6b7280; --accent:#2563eb; --accent-soft:#eef4ff;
+  --ok:#0f7a4d; --warn:#a35a00; --bad:#b42318;
+}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--text);
+  font:14px/1.6 -apple-system,BlinkMacSystemFont,"Segoe UI","PingFang SC","Hiragino Sans GB","Microsoft YaHei",sans-serif}
+header{background:var(--card);border-bottom:1px solid var(--line);padding:14px 24px;
+  display:flex;align-items:center;gap:16px;position:sticky;top:0;z-index:10}
+header h1{font-size:15px;font-weight:600;margin:0;letter-spacing:.2px}
+header .sp{flex:1}
+input,select,textarea,button{font:inherit;color:inherit}
+input,select,textarea{background:#fff;border:1px solid var(--line);border-radius:8px;padding:7px 10px;outline:none;width:100%}
+input:focus,select:focus,textarea:focus{border-color:var(--accent);box-shadow:0 0 0 3px var(--accent-soft)}
+button{background:#fff;border:1px solid var(--line);border-radius:8px;padding:7px 14px;cursor:pointer}
+button:hover{border-color:#c9cfda;background:#fbfcfe}
+button.primary{background:var(--accent);border-color:var(--accent);color:#fff}
+button.primary:hover{background:#1d4fd8}
+button.sm{padding:4px 10px;font-size:13px}
+main{max-width:1180px;margin:0 auto;padding:20px 24px 64px}
+nav{display:flex;gap:4px;flex-wrap:wrap;margin-bottom:18px;border-bottom:1px solid var(--line);padding-bottom:0}
+nav a{padding:8px 14px;border-radius:8px 8px 0 0;color:var(--muted);text-decoration:none;cursor:pointer;font-size:13px;border-bottom:2px solid transparent}
+nav a.on{color:var(--accent);border-bottom-color:var(--accent);background:#fff}
+.card{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:18px 20px;margin-bottom:16px}
+.card h2{font-size:13px;font-weight:600;margin:0 0 14px;color:var(--muted);letter-spacing:.4px;text-transform:uppercase}
+.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:12px}
+.stat{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:14px 16px}
+.stat .n{font-size:24px;font-weight:600;letter-spacing:-.5px}
+.stat .l{font-size:12px;color:var(--muted)}
+table{width:100%;border-collapse:collapse;font-size:13px}
+th{text-align:left;font-weight:500;color:var(--muted);font-size:12px;padding:8px 10px;border-bottom:1px solid var(--line)}
+td{padding:10px;border-bottom:1px solid var(--line2);vertical-align:top}
+tr:last-child td{border-bottom:none}
+code,.mono{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:12px;background:#f4f5f7;padding:1px 5px;border-radius:4px}
+.row{display:flex;gap:10px;flex-wrap:wrap;align-items:flex-end}
+.field{flex:1;min-width:150px}
+.field label{display:block;font-size:12px;color:var(--muted);margin-bottom:4px}
+.pill{display:inline-block;font-size:12px;padding:1px 8px;border-radius:20px;border:1px solid var(--line);background:#fafbfc;color:var(--muted)}
+.pill.ok{color:var(--ok);background:#eefaf3;border-color:#c6ebd8}
+.pill.warn{color:var(--warn);background:#fef7ec;border-color:#f6e0bd}
+.pill.bad{color:var(--bad);background:#fdeeee;border-color:#f6cdc9}
+.muted{color:var(--muted)}
+.pre{white-space:pre-wrap;background:#fafbfc;border:1px solid var(--line2);border-radius:8px;padding:12px 14px;font-size:13px;line-height:1.7}
+.empty{color:var(--muted);padding:24px 0;text-align:center;font-size:13px}
+.toast{position:fixed;right:20px;bottom:20px;background:#16181d;color:#fff;padding:10px 16px;border-radius:10px;font-size:13px;opacity:0;transform:translateY(8px);transition:.2s;pointer-events:none}
+.toast.on{opacity:1;transform:none}
+.hint{font-size:12px;color:var(--muted);margin-top:8px}
+.tag{font-size:11px;padding:1px 6px;border-radius:4px;background:#f1f3f6;color:#5b6270;margin-right:4px}
+</style>
+</head>
+<body>
+<header>
+  <h1>群知识机器人</h1>
+  <span class="pill" id="health">未连接</span>
+  <span class="sp"></span>
+  <a href="/ask" style="font-size:13px;color:#2563eb;text-decoration:none;margin-right:12px">问答页 →</a>
+  <input id="token" placeholder="管理令牌 KB_ADMIN_TOKEN" style="width:260px">
+  <button class="primary" id="connect">连接</button>
+</header>
+<main>
+  <nav id="tabs"></nav>
+  <div id="view"><div class="empty">填入管理令牌后点「连接」</div></div>
+</main>
+<div class="toast" id="toast"></div>
+
+<script>
+const state = {token: localStorage.getItem("kb_token") || "", tab: "overview", cache: {}};
+const urlToken = new URLSearchParams(location.search).get("token");
+if(urlToken){ state.token = urlToken; localStorage.setItem("kb_token", urlToken); }
+
+const TABS = [
+  ["overview","概览"],["groups","群与知识域"],["pending","待审核"],
+  ["docs","知识库"],["grants","授权"],["users","用户"],["ask","提问测试"],["audit","审计"]
+];
+const urlTab = new URLSearchParams(location.search).get("tab");
+if(urlTab && TABS.some(t=>t[0]===urlTab)) state.tab = urlTab;
+
+function esc(s){ return String(s ?? "").replace(/[&<>"']/g, c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c])); }
+function ts(ms){ if(!ms) return ""; const d=new Date(Number(ms)); return d.toLocaleString("zh-CN",{hour12:false}); }
+function toast(msg){ const t=document.getElementById("toast"); t.textContent=msg; t.classList.add("on"); setTimeout(()=>t.classList.remove("on"),2200); }
+
+async function api(path, method="GET", body=null){
+  const opt = {method, headers:{"X-Admin-Token": state.token}};
+  if(body){ opt.headers["Content-Type"]="application/json"; opt.body=JSON.stringify(body); }
+  const r = await fetch(path, opt);
+  const data = await r.json().catch(()=>({error:"响应不是 JSON"}));
+  if(!r.ok) throw new Error(data.error || ("HTTP "+r.status));
+  return data;
+}
+
+function renderTabs(){
+  document.getElementById("tabs").innerHTML = TABS.map(([k,label])=>
+    `<a data-tab="${k}" class="${state.tab===k?"on":""}">${label}</a>`).join("");
+  document.querySelectorAll("nav a").forEach(a=>{
+    a.onclick = ()=>{ state.tab = a.dataset.tab; renderTabs(); render(); };
+  });
+}
+
+async function render(){
+  const view = document.getElementById("view");
+  view.innerHTML = `<div class="empty">加载中…</div>`;
+  try{
+    await ({overview:viewOverview, groups:viewGroups, pending:viewPending, docs:viewDocs,
+            grants:viewGrants, users:viewUsers, ask:viewAsk, audit:viewAudit}[state.tab])();
+  }catch(e){
+    view.innerHTML = `<div class="card"><div class="empty">出错了：${esc(e.message)}</div></div>`;
+  }
+}
+
+/* ---------- 概览 ---------- */
+async function viewOverview(){
+  const o = await api("/api/overview");
+  document.getElementById("health").textContent = "已连接";
+  document.getElementById("health").className = "pill ok";
+  const caps = [
+    ["DWS 群消息", o.dws && o.dws.available, "装了 dws 才能拿群内全量消息，装好后跑 dws-check"],
+    ["大模型", o.llm, "配置 LLM_BASE_URL / LLM_API_KEY / LLM_MODEL"],
+    ["向量检索", o.embedding, "配置 EMBED_MODEL 后自动启用，否则用关键词检索"],
+    ["钉钉机器人", o.dingtalk, "配置 DINGTALK_CLIENT_ID / SECRET 后可做群内答疑出口"],
+    ["自动生效", o.auto_approve, "关闭时新知识需人工审核"],
+    ["强制群成员", o.acl_require_membership, "开启后不在群里的用户查不到该群知识"],
+  ];
+  document.getElementById("view").innerHTML = `
+    <div class="grid" style="margin-bottom:16px">
+      ${[["消息",o.messages],["未沉淀",o.messages_unused],["已生效知识",o.docs_approved],
+         ["待审核",o.docs_pending],["切片",o.chunks],["拦截次数",o.denied]]
+        .map(([l,n])=>`<div class="stat"><div class="n">${n}</div><div class="l">${l}</div></div>`).join("")}
+    </div>
+    <div class="card"><h2>运行状态</h2>
+      <table>${caps.map(([l,on,tip])=>`<tr><td style="width:120px">${l}</td>
+        <td style="width:90px"><span class="pill ${on?"ok":"warn"}">${on?"已启用":"未启用"}</span></td>
+        <td class="muted">${tip}</td></tr>`).join("")}</table>
+      ${o.dingtalk && o.llm ? "" : `<div class="hint">还没配齐的项不影响后台使用，但机器人和智能问答需要它们。</div>`}
+    </div>
+    <div class="card"><h2>知识域（权限的最小单位）</h2>
+      ${o.scopes.length? `<table><tr><th>知识域</th><th>名称</th><th>说明</th></tr>
+        ${o.scopes.map(s=>`<tr><td><code>${esc(s.key)}</code></td><td>${esc(s.name)}</td>
+        <td class="muted">${esc(s.description||"—")}</td></tr>`).join("")}</table>`
+        : `<div class="empty">还没有知识域，先用 <code>python -m app.main demo</code> 或绑定一个群</div>`}
+    </div>`;
+}
+
+/* ---------- 群 ---------- */
+async function viewGroups(){
+  const g = await api("/api/groups");
+  const s = await api("/api/scopes");
+  document.getElementById("view").innerHTML = `
+    <div class="card"><h2>已绑定的群</h2>
+      ${g.items.length? `<table><tr><th>群名称</th><th>会话 ID</th><th>知识域</th><th>已生效</th><th>待审核</th><th>消息</th><th>状态</th></tr>
+      ${g.items.map(x=>`<tr><td>${esc(x.title)}</td><td><code>${esc(x.conversation_id)}</code></td>
+        <td><code>${esc(x.scope_key)}</code></td><td>${x.docs}</td>
+        <td>${x.pending? `<a onclick="state.tab='pending';renderTabs();render()" style="cursor:pointer;color:#a35a00">${x.pending}</a>` : 0}</td>
+        <td>${x.msgs}</td>
+        <td><span class="pill ${x.enabled?"ok":"bad"}">${x.enabled?"启用":"停用"}</span></td></tr>`).join("")}</table>`
+      : `<div class="empty">还没有群。机器人被拉进群并有人 @ 它之后会自动出现。</div>`}
+    </div>
+    <div class="card"><h2>手动绑定 / 合并知识域</h2>
+      <div class="row">
+        <div class="field"><label>会话 ID（openConversationId 或 chatId）</label><input id="g_cid" placeholder="cidXXXXXXXX"></div>
+        <div class="field"><label>群名称</label><input id="g_title" placeholder="客服支持群"></div>
+        <div class="field"><label>知识域（留空则自动生成，填已存在的则合并）</label>
+          <input id="g_scope" list="scopelist" placeholder="chat_support">
+          <datalist id="scopelist">${s.items.map(x=>`<option value="${esc(x.key)}">`).join("")}</datalist>
+        </div>
+        <button class="primary" onclick="bindGroup()">绑定</button>
+      </div>
+      <div class="hint">把两个群填同一个知识域，它们就共享知识；留空则一群一域，互相隔离。</div>
+    </div>`;
+}
+async function bindGroup(){
+  const cid = document.getElementById("g_cid").value.trim();
+  if(!cid) return toast("会话 ID 必填");
+  await api("/api/groups","POST",{conversation_id:cid,
+    title:document.getElementById("g_title").value.trim(),
+    scope_key:document.getElementById("g_scope").value.trim()});
+  toast("已绑定"); render();
+}
+
+/* ---------- 待审核 ---------- */
+async function viewPending(){
+  const [d, ov] = await Promise.all([api("/api/docs?status=pending"), api("/api/overview")]);
+  const auto = ov.auto_approve;
+  document.getElementById("view").innerHTML = `
+    ${auto? `<div class="card" style="border-color:#f6e0bd;background:#fffdf8">
+      <div style="font-size:13px;color:#a35a00"><strong>当前是免审核模式</strong>
+      （<code>KNOWLEDGE_AUTO_APPROVE=true</code>）——群消息提炼出来直接进知识库并立刻可被检索，不会停在这一页。
+      想恢复人工审核，把 <code>.env</code> 里这项改成 <code>false</code> 后重启即可。</div>
+    </div>` : ""}
+    <div class="card"><h2 style="display:flex;align-items:center;gap:10px">待审核知识 · ${d.items.length} 条
+      ${d.items.length? `<span style="flex:1"></span>
+        <button class="sm primary" onclick="approveAll(${d.items.length})">全部通过</button>` : ""}
+    </h2>
+      ${d.items.length? d.items.map(x=>`
+        <div style="border:1px solid var(--line2);border-radius:10px;padding:14px 16px;margin-bottom:12px">
+          <div style="display:flex;gap:10px;align-items:center;margin-bottom:8px">
+            <strong>${esc(x.title)}</strong>
+            <span class="tag">${esc(x.scope_key)}</span>
+            <span class="pill">${esc(x.source)}</span>
+            <span style="flex:1"></span>
+            <button class="sm primary" onclick="docStatus(${x.id},'approved')">通过</button>
+            <button class="sm" onclick="docStatus(${x.id},'rejected')">驳回</button>
+          </div>
+          <div class="pre">${esc(x.content)}</div>
+          <div class="hint">by ${esc(x.created_by||"—")} · ${ts(x.created_at)} ${x.tags? "· "+esc(x.tags):""}</div>
+        </div>`).join("")
+      : `<div class="empty">${auto? "免审核模式下这里不会有内容，新知识都直接生效了。" : "没有待审核内容。群里 @机器人 发 /沉淀 可以生成。"}</div>`}
+    </div>`;
+}
+async function docStatus(id, status){
+  await api("/api/docs/status","POST",{id,status});
+  toast(status==="approved"?"已通过并索引":"已驳回"); render();
+}
+async function approveAll(n){
+  if(!confirm(`确定把 ${n} 条待审核知识全部通过？通过后会立刻对所有有权限的人可见。`)) return;
+  const d = await api("/api/docs?status=pending");
+  let ok = 0, bad = 0;
+  for(const x of d.items){
+    try{ await api("/api/docs/status","POST",{id:x.id,status:"approved"}); ok++; }
+    catch(e){ bad++; }
+  }
+  toast(bad? `已通过 ${ok} 条，${bad} 条失败` : `已通过 ${ok} 条`);
+  render();
+}
+
+/* ---------- 知识库 ---------- */
+async function viewDocs(){
+  const [d,s] = await Promise.all([api("/api/docs?status=approved"), api("/api/scopes")]);
+  const items = d.items;
+  document.getElementById("view").innerHTML = `
+    <div class="card"><h2>新增知识</h2>
+      <div class="row">
+        <div class="field"><label>知识域</label><input id="d_scope" list="scopelist2" placeholder="chat_support">
+          <datalist id="scopelist2">${s.items.map(x=>`<option value="${esc(x.key)}">`).join("")}</datalist></div>
+        <div class="field" style="flex:2"><label>标题</label><input id="d_title" placeholder="退货时限规则"></div>
+      </div>
+      <div style="margin-top:10px"><label class="muted" style="font-size:12px">正文</label>
+        <textarea id="d_content" rows="3" placeholder="签收后 7 天内可无理由退货，需吊牌完整…"></textarea></div>
+      <div class="row" style="margin-top:10px">
+        <div class="field"><label>标签（逗号分隔）</label><input id="d_tags" placeholder="退货,售后"></div>
+        <button class="primary" onclick="addDoc()">保存并生效</button>
+      </div>
+    </div>
+    <div class="card"><h2>已生效知识 · ${items.length} 条</h2>
+      <input id="docq" placeholder="搜索标题/正文/标签" oninput="filterDocs(this.value)" style="margin-bottom:12px">
+      ${items.length? `<table id="doctable"><tr><th style="width:34%">标题</th><th>知识域</th><th>正文</th><th>时间</th><th></th></tr>
+        ${items.map(x=>`<tr data-search="${esc((x.title+' '+x.content+' '+(x.tags||'')).toLowerCase())}">
+        <td><strong>${esc(x.title)}</strong><div>${(x.tags||"").split(",").filter(Boolean).map(t=>`<span class="tag">${esc(t)}</span>`).join("")}</div></td>
+        <td><code>${esc(x.scope_key)}</code></td>
+        <td class="muted" style="max-width:420px">${esc((x.content||"").slice(0,110))}…</td>
+        <td class="muted">${ts(x.created_at)}</td>
+        <td><button class="sm" onclick="delDoc(${x.id})">删除</button></td></tr>`).join("")}</table>`
+      : `<div class="empty">没有匹配的知识</div>`}
+    </div>`;
+}
+function filterDocs(q){
+  q = (q||"").trim().toLowerCase();
+  document.querySelectorAll("#doctable tr[data-search]").forEach(tr=>{
+    tr.style.display = (!q || tr.dataset.search.includes(q)) ? "" : "none";
+  });
+}
+async function addDoc(){
+  const body = {scope_key:document.getElementById("d_scope").value.trim(),
+    title:document.getElementById("d_title").value.trim(),
+    content:document.getElementById("d_content").value.trim(),
+    tags:document.getElementById("d_tags").value.trim(), status:"approved"};
+  if(!body.scope_key || !body.content) return toast("知识域和正文必填");
+  await api("/api/docs","POST",body); toast("已保存"); render();
+}
+async function delDoc(id){
+  if(!confirm("确认删除这条知识？相关切片会一起清除。")) return;
+  await api("/api/docs/delete","POST",{id}); toast("已删除"); render();
+}
+
+/* ---------- 授权 ---------- */
+async function viewGrants(){
+  const [g,s,u] = await Promise.all([api("/api/grants"), api("/api/scopes"), api("/api/users")]);
+  document.getElementById("view").innerHTML = `
+    <div class="card"><h2>跨群授权</h2>
+      <div class="row">
+        <div class="field"><label>用户 staffId</label><input id="r_staff" list="userlist" placeholder="u1001">
+          <datalist id="userlist">${u.items.map(x=>`<option value="${esc(x.staff_id)}">${esc(x.nickname||"")}</option>`).join("")}</datalist></div>
+        <div class="field"><label>知识域</label><input id="r_scope" list="scopelist3" placeholder="chat_dev">
+          <datalist id="scopelist3">${s.items.map(x=>`<option value="${esc(x.key)}">`).join("")}</datalist></div>
+        <div class="field"><label>备注</label><input id="r_note" placeholder="临时项目协作"></div>
+        <button class="primary" onclick="addGrant()">授权可读</button>
+      </div>
+      <div class="hint">默认只能看到自己所在群的知识；这里用于给某人在其他知识域开一个口子。</div>
+    </div>
+    <div class="card"><h2>已有授权 · ${g.items.length} 条</h2>
+      ${g.items.length? `<table><tr><th>用户</th><th>知识域</th><th>可读</th><th>备注</th><th>时间</th><th></th></tr>
+        ${g.items.map(x=>`<tr><td><code>${esc(x.staff_id)}</code> ${esc(x.nickname||"")}</td>
+        <td><code>${esc(x.scope_key)}</code></td>
+        <td><span class="pill ${x.can_read?"ok":"bad"}">${x.can_read?"是":"否"}</span></td>
+        <td class="muted">${esc(x.note||"—")}</td><td class="muted">${ts(x.created_at)}</td>
+        <td><button class="sm" onclick="delGrant(${x.id})">撤销</button></td></tr>`).join("")}</table>`
+      : `<div class="empty">暂无跨群授权</div>`}
+    </div>`;
+}
+async function addGrant(){
+  const staff = document.getElementById("r_staff").value.trim();
+  const scope = document.getElementById("r_scope").value.trim();
+  if(!staff||!scope) return toast("用户和知识域必填");
+  await api("/api/grants","POST",{staff_id:staff,scope_key:scope,note:document.getElementById("r_note").value.trim()});
+  toast("已授权"); render();
+}
+async function delGrant(id){ await api("/api/grants/delete","POST",{id}); toast("已撤销"); render(); }
+
+/* ---------- 用户 ---------- */
+async function viewUsers(){
+  const u = await api("/api/users");
+  document.getElementById("view").innerHTML = `
+    <div class="card"><h2>用户</h2>
+      <div class="row">
+        <div class="field"><label>staffId</label><input id="u_staff" placeholder="u1001"></div>
+        <div class="field"><label>姓名</label><input id="u_nick" placeholder="张三"></div>
+        <div class="field"><label>角色</label><select id="u_role">
+          <option value="member">member 普通成员</option>
+          <option value="admin">admin 管理员（可见全部知识域）</option>
+          <option value="superadmin">superadmin 超级管理员（跨域 + 可见待审核）</option>
+          <option value="guest">guest 外部联系人</option></select></div>
+        <button class="primary" onclick="addUser()">添加 / 更新</button>
+      </div>
+    </div>
+    <div class="card"><h2>已登记 · ${u.items.length} 人</h2>
+      ${u.items.length? `<table><tr><th>staffId</th><th>姓名</th><th>角色</th><th>所在群</th><th>额外授权</th><th>登记时间</th></tr>
+        ${u.items.map(x=>`<tr><td><code>${esc(x.staff_id)}</code></td><td>${esc(x.nickname||"—")}</td>
+        <td><select class="sm" onchange="setRole('${esc(x.staff_id)}',this.value)">
+          ${["superadmin","admin","member","guest"].map(r=>`<option value="${r}" ${x.role===r?"selected":""}>${r}</option>`).join("")}
+        </select></td><td>${x.groups}</td><td>${x.grants}</td><td class="muted">${ts(x.created_at)}</td></tr>`).join("")}</table>`
+      : `<div class="empty">机器人收到消息后会自动登记发件人，也可以在上面手动加。</div>`}
+    </div>`;
+}
+async function addUser(){
+  const staff = document.getElementById("u_staff").value.trim();
+  if(!staff) return toast("staffId 必填");
+  await api("/api/users","POST",{staff_id:staff,nickname:document.getElementById("u_nick").value.trim(),
+    role:document.getElementById("u_role").value});
+  toast("已保存"); render();
+}
+async function setRole(staff,role){
+  try{ await api("/api/users/role","POST",{staff_id:staff,role}); toast("角色已更新"); render(); }
+  catch(e){ toast("改不了：" + e.message); render(); }
+}
+
+/* ---------- 提问测试 ---------- */
+async function viewAsk(){
+  document.getElementById("view").innerHTML = `
+    <div class="card"><h2>模拟提问（走真实的权限与检索链路）</h2>
+      <div class="row">
+        <div class="field"><label>以谁的身份</label><input id="a_staff" placeholder="u1001" value="u1001"></div>
+        <div class="field"><label>在哪个群问（留空为私聊，可查全部可读知识）</label>
+          <input id="a_cid" placeholder="cidSupportAAAA"></div>
+      </div>
+      <div style="margin-top:10px"><textarea id="a_q" rows="2" placeholder="客户买的东西拆封了还能退吗？"></textarea></div>
+      <div style="margin-top:10px"><button class="primary" onclick="doAsk()">提问</button></div>
+      <div id="a_out" style="margin-top:14px"></div>
+    </div>`;
+}
+async function doAsk(){
+  const out = document.getElementById("a_out");
+  out.innerHTML = `<div class="empty">检索中…</div>`;
+  try{
+    const r = await api("/api/ask","POST",{
+      staff_id:document.getElementById("a_staff").value.trim(),
+      conversation_id:document.getElementById("a_cid").value.trim(),
+      question:document.getElementById("a_q").value.trim()});
+    out.innerHTML = `<div class="pre">${esc(r.text)}</div>
+      <div class="hint">模式：${esc(r.mode)} · 检索范围：${r.scopes.map(s=>`<code>${esc(s)}</code>`).join(" ") || "无"}
+      ${r.refused?` · <span class="pill bad">已拒绝</span> ${esc(r.reason)}`:""}</div>
+      ${r.citations.length? `<table style="margin-top:12px"><tr><th>来源</th><th>知识域</th><th>片段</th></tr>
+        ${r.citations.map(c=>`<tr><td>${esc(c.title)}${c.status==="pending"?` <span class="pill warn">待审核</span>`:""}</td><td><code>${esc(c.scope)}</code></td>
+        <td class="muted">${esc(c.snippet)}</td></tr>`).join("")}</table>`:""}`;
+  }catch(e){ out.innerHTML = `<div class="empty">${esc(e.message)}</div>`; }
+}
+
+/* ---------- 审计 ---------- */
+async function viewAudit(){
+  const a = await api("/api/audit?limit=200");
+  document.getElementById("view").innerHTML = `
+    <div class="card"><h2>审计日志 · 最近 ${a.items.length} 条</h2>
+      ${a.items.length? `<table><tr><th>时间</th><th>动作</th><th>谁</th><th>对象</th><th>结果</th><th>详情</th></tr>
+        ${a.items.map(x=>`<tr><td class="muted" style="white-space:nowrap">${ts(x.ts)}</td>
+        <td><code>${esc(x.action)}</code></td><td>${esc(x.actor||"—")}</td><td><code>${esc(x.target||"—")}</code></td>
+        <td><span class="pill ${x.allowed?"ok":"bad"}">${x.allowed?"通过":"拦截"}</span></td>
+        <td class="muted" style="max-width:360px">${esc(x.detail||"")}</td></tr>`).join("")}</table>`
+      : `<div class="empty">暂无日志</div>`}
+    </div>`;
+}
+
+/* ---------- 连接 ---------- */
+document.getElementById("connect").onclick = async ()=>{
+  state.token = document.getElementById("token").value.trim();
+  localStorage.setItem("kb_token", state.token);
+  try{
+    await api("/api/overview");
+    document.getElementById("health").textContent = "已连接";
+    document.getElementById("health").className = "pill ok";
+    toast("已连接"); renderTabs(); render();
+  }catch(e){
+    document.getElementById("health").textContent = "令牌无效";
+    document.getElementById("health").className = "pill bad";
+    toast("连接失败：" + e.message);
+  }
+};
+document.getElementById("token").value = state.token;
+renderTabs();
+if(state.token){ document.getElementById("connect").click(); }
+</script>
+</body>
+</html>

@@ -1,0 +1,13 @@
+[Unit]
+Description=KB Sync - backfill missed DingTalk group messages (DWS history)
+After=network.target
+
+[Service]
+Type=oneshot
+WorkingDirectory=/opt/dingtalk-kb-bot
+EnvironmentFile=/opt/dingtalk-kb-bot/.env
+Environment=HOME=/root
+Environment=PATH=/opt/node20/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
+Environment=DWS_LANG=zh
+ExecStart=/opt/dingtalk-kb-bot/.venv/bin/python -m app.main dws-sync --days 7
+TimeoutStartSec=600

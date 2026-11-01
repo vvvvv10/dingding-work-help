@@ -1,0 +1,18 @@
+[Unit]
+Description=KB Listen - DingTalk group message collector (DWS event stream)
+After=network.target docker.service
+
+[Service]
+Type=simple
+WorkingDirectory=/opt/dingtalk-kb-bot
+EnvironmentFile=/opt/dingtalk-kb-bot/.env
+# systemd 服务默认没有 HOME，dws 会去安装目录 vendor/.dws 找凭证而失败
+Environment=HOME=/root
+Environment=PATH=/opt/node20/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
+Environment=DWS_LANG=zh
+ExecStart=/opt/dingtalk-kb-bot/.venv/bin/python -m app.main dws-listen --kind group_all
+Restart=always
+RestartSec=10
+
+[Install]
+WantedBy=multi-user.target

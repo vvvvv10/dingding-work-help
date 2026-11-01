@@ -1,0 +1,30 @@
+{
+  "conversation_id": "cidImportDemo",
+  "title": "导入示例群",
+  "messages": [
+    {
+      "createTime": "2026-10-20 10:12:00",
+      "sender_name": "赵敏",
+      "sender": "u3001",
+      "content": "以后客户问发票抬头能不能改，统一回复：原票红冲后重开，一个月限一次。"
+    },
+    {
+      "createTime": "2026-10-20 10:13:30",
+      "sender_name": "钱伟",
+      "sender": "u3002",
+      "content": "补充一下，专票重开需要客户把原票寄回，普票电子票直接红冲就行。"
+    },
+    {
+      "createTime": "2026-10-20 10:15:00",
+      "sender_name": "赵敏",
+      "sender": "u3001",
+      "content": "对，另外跨境订单的发票只能开电子普票，开不了专票。"
+    },
+    {
+      "createTime": "2026-10-20 10:20:00",
+      "sender_name": "孙莉",
+      "sender": "u3003",
+      "content": "收到，我更新到部门话术文档里。"
+    }
+  ]
+}

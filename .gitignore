@@ -1,0 +1,8 @@
+data/
+*.sqlite3
+*.sqlite3-wal
+*.sqlite3-shm
+.env
+__pycache__/
+*.pyc
+.DS_Store

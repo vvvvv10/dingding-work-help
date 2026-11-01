@@ -1,0 +1,29 @@
+services:
+  admin:
+    build: .
+    container_name: kb-bot-admin
+    restart: unless-stopped
+    env_file: .env
+    environment:
+      KB_DB_PATH: /data/kb.sqlite3
+    ports:
+      - "8000:8000"
+    volumes:
+      - kbdata:/data
+    command: ["python", "-m", "app.main", "serve", "--host", "0.0.0.0", "--port", "8000", "--with-scheduler"]
+
+  bot:
+    build: .
+    container_name: kb-bot-stream
+    restart: unless-stopped
+    env_file: .env
+    environment:
+      KB_DB_PATH: /data/kb.sqlite3
+    volumes:
+      - kbdata:/data
+    depends_on:
+      - admin
+    command: ["python", "-m", "app.main", "bot"]
+
+volumes:
+  kbdata:

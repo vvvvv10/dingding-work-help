@@ -1,0 +1,414 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#ffffff">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<title>知识问答</title>
+<style>
+:root{
+  --bg:#f6f7f9; --card:#fff; --line:#e3e6ec; --line2:#eef0f4;
+  --text:#16181d; --muted:#6b7280; --accent:#2563eb; --soft:#eef4ff;
+  --ok:#0f7a4d; --warn:#a35a00; --bad:#b42318; --purple:#6d3bd1;
+  --safe-b:env(safe-area-inset-bottom,0px); --safe-t:env(safe-area-inset-top,0px);
+}
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+html,body{height:100%}
+body{
+  margin:0;background:var(--bg);color:var(--text);overflow:hidden;
+  font:15px/1.7 -apple-system,BlinkMacSystemFont,"PingFang SC","Helvetica Neue","Microsoft YaHei",sans-serif;
+  display:flex;flex-direction:column;height:100dvh;
+}
+button{font:inherit;color:inherit;border:none;background:none;padding:0;cursor:pointer}
+
+/* 顶部栏 */
+header{
+  flex:0 0 auto;display:flex;align-items:center;gap:10px;
+  padding:calc(var(--safe-t) + 10px) 14px 10px;
+  background:rgba(255,255,255,.94);border-bottom:1px solid var(--line);
+  backdrop-filter:saturate(180%) blur(12px);-webkit-backdrop-filter:saturate(180%) blur(12px);
+}
+header h1{font-size:16px;font-weight:600;margin:0;letter-spacing:.2px}
+header .sp{flex:1}
+.who{
+  display:flex;align-items:center;gap:7px;max-width:56%;
+  padding:7px 11px 7px 8px;border:1px solid var(--line);border-radius:999px;
+  background:#fff;font-size:13px;color:var(--text);
+}
+.who:active{background:#f2f4f8}
+.who .av{width:22px;height:22px;border-radius:50%;background:#e8ecf3;color:#5b6270;
+  display:flex;align-items:center;justify-content:center;font-size:11px;flex:0 0 auto}
+.who .tx{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.who .cv{color:var(--muted);font-size:11px;flex:0 0 auto}
+
+/* 对话区 */
+#flow{flex:1;overflow-y:auto;-webkit-overflow-scrolling:touch;overscroll-behavior:contain;padding:16px 14px 4px}
+.msg{margin-bottom:18px}
+.ask{display:flex;justify-content:flex-end;margin-bottom:10px}
+.ask .b{
+  max-width:82%;background:var(--accent);color:#fff;border-radius:16px 16px 4px 16px;
+  padding:10px 14px;white-space:pre-wrap;word-break:break-word;font-size:15px;
+}
+.ans{background:var(--card);border:1px solid var(--line);border-radius:16px 16px 16px 4px;
+  padding:13px 14px;word-break:break-word}
+.ans .body{white-space:pre-wrap;font-size:15px;line-height:1.72}
+.ans .body strong{font-weight:600}
+.ans .body blockquote{border-left:3px solid #dfe3ea;margin:8px 0;padding:2px 0 2px 11px;color:#4b5563}
+.ans .body hr{border:none;border-top:1px dashed var(--line2);margin:12px 0}
+.ans .meta{margin-top:10px;padding-top:10px;border-top:1px dashed var(--line2);
+  display:flex;flex-wrap:wrap;gap:7px;align-items:center;font-size:12px;color:var(--muted)}
+.pill{font-size:11px;padding:2px 9px;border-radius:999px;border:1px solid var(--line);background:#fafbfc;line-height:1.6}
+.pill.bad{color:var(--bad);background:#fdeeee;border-color:#f6cdc9}
+.pill.ok{color:var(--ok);background:#eefaf3;border-color:#c6ebd8}
+.pill.warn{color:var(--warn);background:#fff7e8;border-color:#f2dcb0}
+code{font-family:ui-monospace,Menlo,monospace;font-size:11px;background:#eef0f4;
+  padding:1px 5px;border-radius:4px}
+
+/* 引用：默认折叠，省屏幕 */
+details.cites{margin-top:10px;border-top:1px dashed var(--line2);padding-top:8px}
+details.cites>summary{font-size:12px;color:var(--accent);list-style:none;padding:4px 0;cursor:pointer}
+details.cites>summary::-webkit-details-marker{display:none}
+details.cites>summary::before{content:"▸ ";color:var(--muted)}
+details.cites[open]>summary::before{content:"▾ "}
+.cite{font-size:12.5px;background:#fafbfc;border:1px solid var(--line2);border-radius:10px;
+  padding:9px 11px;color:#4b5563;margin-top:7px;line-height:1.6}
+.cite b{color:var(--text);font-weight:500}
+
+/* 空状态 */
+.empty{text-align:center;color:var(--muted);padding:34px 8px}
+.empty h3{font-size:16px;color:var(--text);font-weight:500;margin:0 0 6px}
+.empty p{margin:0;font-size:13px}
+.chips{display:flex;flex-direction:column;gap:9px;margin-top:20px}
+.chip{
+  border:1px solid var(--line);background:#fff;border-radius:12px;padding:12px 14px;
+  font-size:14px;color:#374151;text-align:left;box-shadow:0 1px 2px rgba(16,24,40,.03);
+}
+.chip:active{background:var(--soft);border-color:#c9dbff;color:var(--accent)}
+.chip::after{content:"›";float:right;color:#c2c8d2}
+
+/* 输入区 */
+footer{
+  flex:0 0 auto;background:rgba(255,255,255,.96);border-top:1px solid var(--line);
+  padding:9px 12px calc(9px + var(--safe-b));
+  backdrop-filter:saturate(180%) blur(12px);-webkit-backdrop-filter:saturate(180%) blur(12px);
+}
+.composer{display:flex;gap:8px;align-items:flex-end}
+textarea{
+  flex:1;resize:none;border:1px solid var(--line);border-radius:20px;
+  padding:10px 14px;font-size:16px;   /* 16px 以下 iOS 聚焦会强制放大页面 */
+  line-height:1.5;font-family:inherit;outline:none;background:#fafbfc;
+  max-height:112px;min-height:42px;color:var(--text);
+}
+textarea:focus{background:#fff;border-color:var(--accent)}
+#send{
+  width:42px;height:42px;border-radius:50%;background:var(--accent);color:#fff;
+  display:flex;align-items:center;justify-content:center;flex:0 0 auto;
+}
+#send:disabled{opacity:.4}
+#send svg{width:19px;height:19px}
+
+/* 身份选择：底部抽屉 */
+#sheet{position:fixed;inset:0;z-index:30;display:none}
+#sheet.on{display:block}
+#sheet .mask{position:absolute;inset:0;background:rgba(16,24,40,.42);opacity:0;transition:opacity .2s}
+#sheet.on .mask{opacity:1}
+#sheet .panel{
+  position:absolute;left:0;right:0;bottom:0;background:#fff;border-radius:20px 20px 0 0;
+  padding:8px 0 calc(8px + var(--safe-b));max-height:78dvh;display:flex;flex-direction:column;
+  transform:translateY(100%);transition:transform .24s cubic-bezier(.32,.72,0,1);
+}
+#sheet.on .panel{transform:translateY(0)}
+#sheet .grab{width:38px;height:4px;border-radius:2px;background:#d8dce4;margin:8px auto 4px}
+#sheet h2{font-size:13px;color:var(--muted);font-weight:500;margin:6px 18px 8px}
+#sheet .list{overflow-y:auto;padding:0 10px 6px}
+.idt{display:flex;align-items:center;gap:10px;padding:11px 10px;border-radius:12px}
+.idt:active{background:#f2f4f8}
+.idt.on{background:var(--soft)}
+.idt .av{width:34px;height:34px;border-radius:50%;background:#e8ecf3;color:#5b6270;
+  display:flex;align-items:center;justify-content:center;font-size:13px;flex:0 0 auto}
+.idt .nm{flex:1;min-width:0}
+.idt .nm b{display:block;font-weight:500;font-size:14px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.idt .nm span{display:block;font-size:11px;color:var(--muted);font-family:ui-monospace,Menlo,monospace;
+  white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.role{font-size:10px;padding:2px 7px;border-radius:999px;border:1px solid var(--line);color:var(--muted);flex:0 0 auto}
+.role.super{background:#f3edff;border-color:#dccdfa;color:var(--purple)}
+.role.admin{background:#eefaf3;border-color:#c6ebd8;color:var(--ok)}
+#permbox{margin:6px 18px calc(10px + var(--safe-b));padding:10px 12px;background:#fafbfc;
+  border:1px solid var(--line2);border-radius:12px;font-size:12px;color:var(--muted);line-height:1.6}
+#permbox b{color:var(--text);font-weight:500}
+
+/* 令牌门 */
+#gate{position:fixed;inset:0;z-index:40;background:var(--bg);display:none;
+  flex-direction:column;justify-content:center;padding:28px}
+#gate.on{display:flex}
+#gate h3{margin:0 0 6px;font-size:17px;font-weight:600}
+#gate p{margin:0 0 16px;color:var(--muted);font-size:13px}
+#gate input{width:100%;border:1px solid var(--line);border-radius:12px;padding:13px;font-size:16px;
+  font-family:inherit;outline:none;margin-bottom:12px;background:#fff}
+#gate button{width:100%;background:var(--accent);color:#fff;border-radius:12px;padding:13px;
+  font-size:15px;font-weight:500}
+</style>
+</head>
+<body>
+
+<header>
+  <h1>知识问答</h1>
+  <span class="sp"></span>
+  <button class="who" id="whoBtn" onclick="openSheet()">
+    <span class="av" id="whoAv">?</span>
+    <span class="tx" id="whoTx">选择身份</span>
+    <span class="cv">▾</span>
+  </button>
+</header>
+
+<div id="flow">
+  <div id="msgs"></div>
+</div>
+
+<footer>
+  <div class="composer">
+    <textarea id="q" rows="1" placeholder="问点什么…" enterkeyhint="send"></textarea>
+    <button id="send" aria-label="发送">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+           stroke-linecap="round" stroke-linejoin="round"><path d="M12 19V5M5 12l7-7 7 7"/></svg>
+    </button>
+  </div>
+</footer>
+
+<div id="sheet">
+  <div class="mask" onclick="closeSheet()"></div>
+  <div class="panel">
+    <div class="grab"></div>
+    <h2>切换身份，看到的知识跟着变</h2>
+    <div class="list" id="idlist"></div>
+    <div id="permbox"></div>
+  </div>
+</div>
+
+<div id="gate">
+  <h3>需要访问令牌</h3>
+  <p>粘贴管理员给的令牌，只需输一次。</p>
+  <input id="gtoken" placeholder="KB_ADMIN_TOKEN" autocapitalize="off" autocorrect="off">
+  <button onclick="connect()">进入</button>
+</div>
+
+<script>
+const $ = id => document.getElementById(id);
+const esc = s => String(s ?? "").replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+const ROLE_LABEL = {superadmin:"超级管理员", admin:"管理员", member:"成员", guest:"外部", unknown:"未登记"};
+const SUGGESTIONS = ["登录页能不能放测试账号", "官网英文小标题有什么限制", "工作台头像能改吗", "网关中心有哪些功能"];
+
+const state = {token:"", identities:[], current:null, busy:false};
+const url = new URLSearchParams(location.search);
+state.token = url.get("token") || localStorage.getItem("kb_token") || "";
+if (url.get("token")) localStorage.setItem("kb_token", state.token);
+
+/* 只处理后端会产出的标记：**加粗**、> 引用、--- 分隔线 */
+function md(s){
+  const parts = esc(s).split("\n");
+  const out = []; let inQ = false;
+  for (const line of parts){
+    if (line.trim() === "---"){
+      if (inQ){ out.push("</blockquote>"); inQ = false; }
+      out.push("<hr>"); continue;
+    }
+    if (line.startsWith("&gt; ")){
+      if (!inQ){ out.push("<blockquote>"); inQ = true; }
+      out.push(line.slice(5)); continue;
+    }
+    if (inQ){ out.push("</blockquote>"); inQ = false; }
+    out.push(line);
+  }
+  if (inQ) out.push("</blockquote>");
+  return out.join("\n").replace(/\*\*([^*]+)\*\*/g, "<strong>$1</strong>");
+}
+
+async function api(path, method="GET", body=null){
+  const opt = {method, headers:{"X-Admin-Token": state.token}};
+  if (body){ opt.headers["Content-Type"] = "application/json"; opt.body = JSON.stringify(body); }
+  const r = await fetch(path, opt);
+  const data = await r.json().catch(()=>({error:"响应不是 JSON"}));
+  if (r.status === 401) throw new Error("401");
+  if (!r.ok) throw new Error(data.error || ("HTTP " + r.status));
+  return data;
+}
+
+/* ---------------- 身份 ---------------- */
+function renderWho(){
+  const p = state.current;
+  if (!p){ $("whoAv").textContent = "?"; $("whoTx").textContent = "选择身份"; return; }
+  const name = p.nickname || p.staff_id;
+  const role = ROLE_LABEL[p.role] || p.role;
+  // 昵称本身可能就是「超级管理员」，再拼一次角色会撑爆按钮并截断，重复就只显示名字
+  $("whoAv").textContent = name.slice(0,1);
+  $("whoTx").textContent = (role && role !== name) ? name + " · " + role : name;
+}
+
+function renderList(){
+  $("idlist").innerHTML = state.identities.map(it => {
+    const on = state.current && state.current.staff_id === it.staff_id ? "on" : "";
+    const cls = it.role === "superadmin" ? "super" : it.role === "admin" ? "admin" : "member";
+    return `<div class="idt ${on}" onclick="pick('${esc(it.staff_id)}')">
+      <div class="av">${esc((it.nickname || it.staff_id).slice(0,1))}</div>
+      <div class="nm"><b>${esc(it.nickname || it.staff_id)}</b><span>${esc(it.staff_id)}</span></div>
+      <span class="role ${cls}">${ROLE_LABEL[it.role] || it.role}</span>
+    </div>`;
+  }).join("") || `<div class="empty">还没有用户</div>`;
+}
+
+function renderPerm(){
+  const p = state.current;
+  if (!p){ $("permbox").innerHTML = ""; return; }
+  let html;
+  if (p.is_super){
+    html = `<b>超级管理员：全部知识域</b><br>不受群隔离限制，待审核内容也能检索。`;
+  } else if (!p.scopes.length){
+    html = `<b>没有任何可访问的知识域</b><br>${esc(p.reason || "未被分配到任何群")}`;
+  } else {
+    html = `<b>可访问 ${p.scopes.length} 个知识域</b><br>${p.scopes.map(s=>`<code>${esc(s)}</code>`).join(" ")}`;
+  }
+  $("permbox").innerHTML = html;
+}
+
+function openSheet(){ renderList(); renderPerm(); $("sheet").classList.add("on"); }
+function closeSheet(){ $("sheet").classList.remove("on"); }
+
+function pick(id){
+  const p = state.identities.find(x => x.staff_id === id);
+  if (!p) return;
+  const changed = !state.current || state.current.staff_id !== p.staff_id;
+  state.current = p;
+  renderWho(); renderList(); renderPerm(); closeSheet();
+  if (changed) resetFlow();
+  $("q").focus();
+}
+
+/* ---------------- 对话 ---------------- */
+function emptyState(){
+  return `<div class="empty">
+    <h3>问点具体的</h3>
+    <p>答案只来自你有权限看的那几个群</p>
+    <div class="chips">${SUGGESTIONS.map(q=>`<button class="chip" onclick="askChip(this)">${esc(q)}</button>`).join("")}</div>
+  </div>`;
+}
+
+function resetFlow(){
+  $("msgs").innerHTML = emptyState();
+  $("q").value = "";
+  autosize();
+}
+
+function addAsk(text){
+  const d = document.createElement("div");
+  d.className = "ask";
+  d.innerHTML = `<div class="b">${esc(text)}</div>`;
+  $("msgs").appendChild(d);
+  scrollEnd();
+  return d;
+}
+
+function addAnswer(q, a){
+  const roles = a.refused
+    ? `<span class="pill bad">已拒绝</span>`
+    : `<span class="pill ok">${a.mode === "llm" ? "生成回答" : a.mode === "snippet" ? "原文片段" : "提示"}</span>`;
+  const cites = (a.citations || []);
+  const citeHtml = cites.length ? `<details class="cites">
+      <summary>${cites.length} 条来源</summary>
+      ${cites.map((c,i)=>`<div class="cite">
+        <b>[${c.n || i+1}] ${esc(c.title)}</b> · ${esc(c.scope)}
+        ${c.status === "pending" ? `<span class="pill warn">待审核</span>` : ""}
+        <br>${esc(c.snippet)}
+      </div>`).join("")}
+    </details>` : "";
+  const d = document.createElement("div");
+  d.className = "msg";
+  d.innerHTML = `<div class="ans">
+      <div class="body">${md(a.text || "")}</div>
+      <div class="meta">${roles}${a.scopes && a.scopes.length ? `<span>${a.scopes.map(s=>`<code>${esc(s)}</code>`).join(" ")}</span>` : ""}</div>
+      ${citeHtml}
+    </div>`;
+  $("msgs").appendChild(d);
+  scrollEnd();
+}
+
+function scrollEnd(){ requestAnimationFrame(()=>{ $("flow").scrollTop = $("flow").scrollHeight; }); }
+
+function askChip(btn){ $("q").value = btn.textContent.trim(); send(); }
+
+async function send(){
+  const box = $("q");
+  const q = box.value.trim();
+  if (!q || state.busy) return;
+  if (!state.current){ openSheet(); return; }
+
+  box.value = ""; autosize(); state.busy = true; $("send").disabled = true;
+  const empty = $("msgs").querySelector(".empty");
+  if (empty) empty.remove();
+
+  addAsk(q);
+  const holder = document.createElement("div");
+  holder.className = "msg";
+  holder.innerHTML = `<div class="ans" style="color:var(--muted)">检索中…</div>`;
+  $("msgs").appendChild(holder);
+  scrollEnd();
+
+  try{
+    const a = await api("/api/ask", "POST", {
+      staff_id: state.current.staff_id, question: q, nickname: state.current.nickname || ""
+    });
+    holder.remove(); addAnswer(q, a);
+  }catch(e){
+    holder.remove();
+    addAnswer(q, {
+      text: e.message === "401" ? "令牌无效，请重新输入。" : ("出错了：" + e.message),
+      refused: true, mode: "error", scopes: [], citations: []
+    });
+    if (e.message === "401"){ localStorage.removeItem("kb_token"); $("gate").classList.add("on"); }
+  }finally{
+    state.busy = false; $("send").disabled = false;
+  }
+}
+
+function autosize(){
+  const t = $("q");
+  t.style.height = "auto";
+  t.style.height = Math.min(t.scrollHeight, 112) + "px";
+}
+
+function connect(){
+  state.token = $("gtoken").value.trim();
+  localStorage.setItem("kb_token", state.token);
+  boot();
+}
+
+async function boot(){
+  try{
+    const d = await api("/api/identities");
+    $("gate").classList.remove("on");
+    state.identities = d.items || [];
+    renderList();
+    const want = url.get("staff");
+    const target = (want && state.identities.find(x => x.staff_id === want))
+      || state.identities.find(x => x.is_super) || state.identities[0];
+    if (target) pick(target.staff_id);
+    const preset = url.get("q");
+    if (preset && target){ $("q").value = preset; send(); }
+  }catch(e){
+    $("gate").classList.add("on");
+    if (!state.token) $("gtoken").focus();
+  }
+}
+
+$("send").onclick = send;
+$("q").addEventListener("input", autosize);
+$("q").addEventListener("keydown", e => {
+  if (e.key === "Enter" && !e.shiftKey && !e.isComposing){ e.preventDefault(); send(); }
+});
+document.addEventListener("visibilitychange", () => { if (!document.hidden) scrollEnd(); });
+
+resetFlow();
+boot();
+</script>
+</body>
+</html>
